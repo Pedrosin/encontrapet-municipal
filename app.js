@@ -1,4 +1,20 @@
 const { createApp, computed, ref, watch } = Vue;
+const { createRouter, createWebHashHistory } = VueRouter;
+
+const router = createRouter({
+  history: createWebHashHistory(),
+  routes: [
+    { path: '/', component: { template: '<span></span>' } },
+    { path: '/inicio', redirect: '/' },
+    { path: '/ocorrencias', component: { template: '<span></span>' } },
+    { path: '/ocorrencias/:id', component: { template: '<span></span>' } },
+    { path: '/mapa', component: { template: '<span></span>' } },
+    { path: '/painel', component: { template: '<span></span>' } },
+    { path: '/administracao', component: { template: '<span></span>' } },
+    { path: '/cadastrar', component: { template: '<span></span>' } },
+    { path: '/como-funciona', component: { template: '<span></span>' } }
+  ]
+});
 
 const STORAGE_KEY = 'encontrapet-ocorrencias-v1';
 const CONTACTS_KEY = 'encontrapet-contatos-v1';
@@ -54,6 +70,7 @@ createApp({
       occurrences.value.unshift({ id: Date.now(), ...form.value, name: form.value.name || 'Sem nome', reviewStatus: 'Pendente' });
       notice.value = 'Ocorrência cadastrada com sucesso.';
       showForm.value = false;
+      router.push('/ocorrencias');
       form.value = { type: 'Perdido', name: '', species: 'Cão', color: '', location: '', date: '', status: 'Em busca do tutor', description: '', photo: '' };
     }
 
@@ -64,6 +81,7 @@ createApp({
 
     function openDetails(item) {
       selectedOccurrence.value = item;
+      router.push(`/ocorrencias/${item.id}`);
     }
 
     function handlePhoto(event) {
@@ -115,40 +133,65 @@ createApp({
       pending: occurrences.value.filter((item) => item.reviewStatus === 'Pendente').length
     }));
 
-    return { occurrences, search, filterType, filterSpecies, filterStatus, profile, showForm, selectedOccurrence, contactOccurrence, contactMessage, notice, form, filteredOccurrences, dashboardStats, submitOccurrence, updateStatus, openDetails, handlePhoto, openContact, submitContact, mapPosition, adminAction };
+    const routePath = computed(() => router.currentRoute.value.path);
+
+    function navigate(path) {
+      router.push(path);
+      if (path === '/cadastrar') showForm.value = true;
+    }
+
+    watch(routePath, (path) => {
+      showForm.value = path === '/cadastrar';
+      if (path.startsWith('/ocorrencias/')) {
+        const item = occurrences.value.find((occurrence) => String(occurrence.id) === path.split('/').pop());
+        selectedOccurrence.value = item || null;
+      } else {
+        selectedOccurrence.value = null;
+      }
+    }, { immediate: true });
+
+    watch(showForm, (value) => {
+      if (!value && routePath.value === '/cadastrar') router.push('/ocorrencias');
+    });
+
+    watch(selectedOccurrence, (value) => {
+      if (!value && routePath.value.startsWith('/ocorrencias/')) router.push('/ocorrencias');
+    });
+
+    return { occurrences, search, filterType, filterSpecies, filterStatus, profile, showForm, selectedOccurrence, contactOccurrence, contactMessage, notice, form, filteredOccurrences, dashboardStats, routePath, submitOccurrence, updateStatus, openDetails, handlePhoto, openContact, submitContact, mapPosition, adminAction, navigate };
   },
   template: `
     <header class="site-header">
       <div class="container header-content">
-        <a class="brand" href="#inicio" aria-label="EncontraPet Municipal - início">
+        <router-link class="brand" to="/" aria-label="EncontraPet Municipal - início">
           <span class="brand-mark" aria-hidden="true">🐾</span>
           <span><strong>EncontraPet</strong><small>Municipal</small></span>
-        </a>
+        </router-link>
         <nav aria-label="Navegação principal">
-            <a href="#ocorrencias">Ocorrências</a>
-            <a href="#mapa">Mapa</a>
-            <a href="#painel">Meu painel</a>
-            <a href="#administracao">Administração</a>
-            <a href="#como-funciona">Como funciona</a>
-            <label class="profile-switch">Perfil (demonstração)<select v-model="profile"><option>Visitante</option><option>Tutor</option><option>Administrador</option></select></label><button class="button button-primary" @click="showForm = true">Cadastrar ocorrência</button>
+            <router-link to="/ocorrencias">Ocorrências</router-link>
+            <router-link to="/mapa">Mapa</router-link>
+            <router-link to="/painel">Meu painel</router-link>
+            <router-link to="/administracao">Administração</router-link>
+            <router-link to="/como-funciona">Como funciona</router-link>
+            <label class="profile-switch">Perfil (demonstração)<select v-model="profile"><option>Visitante</option><option>Tutor</option><option>Administrador</option></select></label><button class="button button-primary" @click="navigate('/cadastrar')">Cadastrar ocorrência</button>
         </nav>
       </div>
     </header>
 
     <main id="inicio">
-      <section class="hero">
+      <section v-if="routePath === '/'" class="hero">
         <div class="container hero-grid">
           <div>
             <p class="eyebrow">Bauru, São Paulo</p>
             <h1>Ajude um pet a voltar para casa.</h1>
             <p class="hero-copy">Um espaço municipal para registrar, encontrar e acompanhar pets perdidos ou encontrados.</p>
-            <a class="button button-light" href="#ocorrencias">Buscar um pet</a>
+            <router-link class="button button-light" to="/ocorrencias">Buscar um pet</router-link>
           </div>
           <div class="hero-illustration" aria-label="Ilustração de um cão e um gato" role="img"><span>🐶</span><span>🐱</span></div>
         </div>
       </section>
 
-      <section id="ocorrencias" class="section container">
+      <section v-if="routePath === '/ocorrencias' || routePath.startsWith('/ocorrencias/')" id="ocorrencias" class="section container">
         <div class="section-heading"><div><p class="eyebrow">Consulta pública</p><h2>Ocorrências recentes</h2></div><span class="result-count">{{ filteredOccurrences.length }} registros</span></div>
         <div class="filters" role="search">
           <label class="search-field"><span class="sr-only">Buscar por palavra-chave</span><input v-model="search" type="search" placeholder="Busque por bairro, espécie ou cor" /></label>
@@ -167,13 +210,13 @@ createApp({
         <p v-else class="empty-state">Nenhuma ocorrência encontrada com esses filtros.</p>
       </section>
 
-      <section id="mapa" class="section map-section"><div class="container"><div class="section-heading"><div><p class="eyebrow">Visão territorial</p><h2>Mapa de ocorrências</h2></div><span class="result-count">Localização aproximada</span></div><p class="section-intro">Consulte a concentração de registros por região sem expor endereços exatos.</p><div class="map-board" aria-label="Mapa demonstrativo de Bauru com ocorrências"><span class="map-road road-one"></span><span class="map-road road-two"></span><span class="map-road road-three"></span><span class="map-label label-north">Norte</span><span class="map-label label-center">Centro</span><span class="map-label label-south">Sul</span><button v-for="(item, index) in filteredOccurrences" :key="'map-' + item.id" class="map-marker" :style="mapPosition(index)" @click="openDetails(item)" :aria-label="'Abrir ocorrência de ' + item.name">{{ item.species === 'Gato' ? '🐱' : '🐶' }}</button></div></div></section>
+      <section v-if="routePath === '/mapa'" id="mapa" class="section map-section"><div class="container"><div class="section-heading"><div><p class="eyebrow">Visão territorial</p><h2>Mapa de ocorrências</h2></div><span class="result-count">Localização aproximada</span></div><p class="section-intro">Consulte a concentração de registros por região sem expor endereços exatos.</p><div class="map-board" aria-label="Mapa demonstrativo de Bauru com ocorrências"><span class="map-road road-one"></span><span class="map-road road-two"></span><span class="map-road road-three"></span><span class="map-label label-north">Norte</span><span class="map-label label-center">Centro</span><span class="map-label label-south">Sul</span><button v-for="(item, index) in filteredOccurrences" :key="'map-' + item.id" class="map-marker" :style="mapPosition(index)" @click="openDetails(item)" :aria-label="'Abrir ocorrência de ' + item.name">{{ item.species === 'Gato' ? '🐱' : '🐶' }}</button></div></div></section>
 
-      <section id="painel" class="section dashboard-section"><div class="container"><div class="section-heading"><div><p class="eyebrow">Área do usuário</p><h2>Meu painel</h2></div><span class="result-count">Perfil: {{ profile }}</span></div><p class="section-intro">Acompanhe os registros associados ao seu perfil e atualize a situação dos animais.</p><div class="stats-grid"><div class="stat-card"><strong>{{ dashboardStats.total }}</strong><span>Registros no protótipo</span></div><div class="stat-card"><strong>{{ dashboardStats.lost }}</strong><span>Pets perdidos</span></div><div class="stat-card"><strong>{{ dashboardStats.found }}</strong><span>Pets encontrados</span></div><div class="stat-card"><strong>{{ dashboardStats.reunited }}</strong><span>Reencontros</span></div></div><div class="panel-note"><strong>Próximo passo:</strong> com autenticação real, esta área exibirá somente as ocorrências cadastradas pelo usuário conectado.</div></div></section>
+      <section v-if="routePath === '/painel'" id="painel" class="section dashboard-section"><div class="container"><div class="section-heading"><div><p class="eyebrow">Área do usuário</p><h2>Meu painel</h2></div><span class="result-count">Perfil: {{ profile }}</span></div><p class="section-intro">Acompanhe os registros associados ao seu perfil e atualize a situação dos animais.</p><div class="stats-grid"><div class="stat-card"><strong>{{ dashboardStats.total }}</strong><span>Registros no protótipo</span></div><div class="stat-card"><strong>{{ dashboardStats.lost }}</strong><span>Pets perdidos</span></div><div class="stat-card"><strong>{{ dashboardStats.found }}</strong><span>Pets encontrados</span></div><div class="stat-card"><strong>{{ dashboardStats.reunited }}</strong><span>Reencontros</span></div></div><div class="panel-note"><strong>Próximo passo:</strong> com autenticação real, esta área exibirá somente as ocorrências cadastradas pelo usuário conectado.</div></div></section>
 
-      <section id="administracao" class="section admin-section"><div class="container"><div class="section-heading"><div><p class="eyebrow">Gestão municipal</p><h2>Painel administrativo</h2></div><span class="result-count">Demonstração local</span></div><p class="section-intro">Área para revisão de conteúdo, acompanhamento dos indicadores e moderação das ocorrências.</p><div class="stats-grid"><div class="stat-card"><strong>{{ dashboardStats.total }}</strong><span>Total de ocorrências</span></div><div class="stat-card"><strong>{{ dashboardStats.pending }}</strong><span>Aguardando revisão</span></div><div class="stat-card"><strong>{{ dashboardStats.reunited }}</strong><span>Reencontrados</span></div></div><div class="admin-list"><article v-for="item in occurrences" :key="'admin-' + item.id" class="admin-row"><div><strong>{{ item.name }}</strong><span>{{ item.type }} · {{ item.location }} · {{ item.reviewStatus }}</span></div><div class="admin-actions"><button class="small-button" @click="adminAction(item, 'Aprovada')">Aprovar</button><button class="small-button danger-button" @click="adminAction(item, 'Ocultada')">Ocultar</button></div></article></div></div></section>
+      <section v-if="routePath === '/administracao'" id="administracao" class="section admin-section"><div class="container"><div class="section-heading"><div><p class="eyebrow">Gestão municipal</p><h2>Painel administrativo</h2></div><span class="result-count">Demonstração local</span></div><p class="section-intro">Área para revisão de conteúdo, acompanhamento dos indicadores e moderação das ocorrências.</p><div class="stats-grid"><div class="stat-card"><strong>{{ dashboardStats.total }}</strong><span>Total de ocorrências</span></div><div class="stat-card"><strong>{{ dashboardStats.pending }}</strong><span>Aguardando revisão</span></div><div class="stat-card"><strong>{{ dashboardStats.reunited }}</strong><span>Reencontrados</span></div></div><div class="admin-list"><article v-for="item in occurrences" :key="'admin-' + item.id" class="admin-row"><div><strong>{{ item.name }}</strong><span>{{ item.type }} · {{ item.location }} · {{ item.reviewStatus }}</span></div><div class="admin-actions"><button class="small-button" @click="adminAction(item, 'Aprovada')">Aprovar</button><button class="small-button danger-button" @click="adminAction(item, 'Ocultada')">Ocultar</button></div></article></div></div></section>
 
-      <section id="como-funciona" class="how-section"><div class="container"><div class="section-heading"><div><p class="eyebrow">Participação cidadã</p><h2>Como funciona</h2></div></div><div class="steps"><div><span>1</span><h3>Registre</h3><p>Informe as características e o local onde o pet foi perdido ou encontrado.</p></div><div><span>2</span><h3>Busque</h3><p>Use filtros para consultar ocorrências próximas e comparar informações.</p></div><div><span>3</span><h3>Reencontre</h3><p>Envie informações com privacidade e ajude a atualizar a situação do animal.</p></div></div></div></section>
+      <section v-if="routePath === '/como-funciona'" id="como-funciona" class="how-section"><div class="container"><div class="section-heading"><div><p class="eyebrow">Participação cidadã</p><h2>Como funciona</h2></div></div><div class="steps"><div><span>1</span><h3>Registre</h3><p>Informe as características e o local onde o pet foi perdido ou encontrado.</p></div><div><span>2</span><h3>Busque</h3><p>Use filtros para consultar ocorrências próximas e comparar informações.</p></div><div><span>3</span><h3>Reencontre</h3><p>Envie informações com privacidade e ajude a atualizar a situação do animal.</p></div></div></div></section>
     </main>
 
     <div v-if="selectedOccurrence" class="modal-backdrop" @click.self="selectedOccurrence = null"><section class="modal" role="dialog" aria-modal="true" aria-labelledby="details-title"><button class="modal-close" aria-label="Fechar detalhes" @click="selectedOccurrence = null">×</button><p class="eyebrow">Detalhes da ocorrência</p><h2 id="details-title">{{ selectedOccurrence.name }}</h2><img v-if="selectedOccurrence.photo" class="detail-photo" :src="selectedOccurrence.photo" :alt="'Foto de ' + selectedOccurrence.name" /><p class="detail-type">{{ selectedOccurrence.type }} · {{ selectedOccurrence.species }}</p><dl class="details-list"><div><dt>Cor</dt><dd>{{ selectedOccurrence.color }}</dd></div><div><dt>Local aproximado</dt><dd>{{ selectedOccurrence.location }}</dd></div><div><dt>Data</dt><dd>{{ selectedOccurrence.date }}</dd></div><div><dt>Situação</dt><dd>{{ selectedOccurrence.status }}</dd></div></dl><p class="detail-description">{{ selectedOccurrence.description || 'Sem descrição adicional.' }}</p><button class="button button-primary" @click="openContact(selectedOccurrence); selectedOccurrence = null">Tenho informações sobre este pet</button></section></div>
@@ -182,4 +225,4 @@ createApp({
     <div v-if="notice" class="toast" role="status">{{ notice }} <button aria-label="Fechar aviso" @click="notice = ''">×</button></div>
     <footer><div class="container"><strong>EncontraPet Municipal</strong><span>Projeto Integrador em Tecnologia da Informação II · Bauru, SP</span></div></footer>
   `
-}).mount('#app');
+}).use(router).mount('#app');

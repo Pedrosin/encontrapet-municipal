@@ -5,6 +5,7 @@ Primeira versão do projeto integrador para registrar, consultar e acompanhar pe
 ## Tecnologias
 
 - Vue.js 3 via CDN
+- Vue Router 4 via CDN
 - HTML5 semântico
 - CSS responsivo
 - JavaScript
@@ -31,6 +32,7 @@ Abra `index.html` em um navegador com conexão à internet. A conexão é necess
 - Painel administrativo com revisão e ocultação de ocorrências.
 - Atualização da lista sem recarregar a página.
 - Layout responsivo e navegação por teclado.
+- Rotas para início, ocorrências, detalhes, mapa, painel, administração e cadastro.
 
 ## Limitações da versão inicial
 
