@@ -3,15 +3,15 @@ const { createApp, computed, ref, watch } = Vue;
 const STORAGE_KEY = 'encontrapet-ocorrencias-v1';
 const CONTACTS_KEY = 'encontrapet-contatos-v1';
 const initialOccurrences = [
-  { id: 1, type: 'Perdido', name: 'Mel', species: 'Cão', color: 'Caramelo', location: 'Jardim Estoril', date: '2026-09-02', status: 'Em busca do tutor', description: 'Pequena, usa coleira vermelha e responde pelo nome Mel.' },
-  { id: 2, type: 'Encontrado', name: 'Sem nome', species: 'Gato', color: 'Branco e cinza', location: 'Vila Universitária', date: '2026-09-03', status: 'Aguardando identificação', description: 'Gato dócil encontrado próximo à praça.' },
-  { id: 3, type: 'Perdido', name: 'Thor', species: 'Cão', color: 'Preto', location: 'Centro', date: '2026-08-29', status: 'Em busca do tutor', description: 'Porte médio, mancha branca no peito.' }
+  { id: 1, type: 'Perdido', name: 'Mel', species: 'Cão', color: 'Caramelo', location: 'Jardim Estoril', date: '2026-09-02', status: 'Em busca do tutor', reviewStatus: 'Aprovada', description: 'Pequena, usa coleira vermelha e responde pelo nome Mel.' },
+  { id: 2, type: 'Encontrado', name: 'Sem nome', species: 'Gato', color: 'Branco e cinza', location: 'Vila Universitária', date: '2026-09-03', status: 'Aguardando identificação', reviewStatus: 'Aprovada', description: 'Gato dócil encontrado próximo à praça.' },
+  { id: 3, type: 'Perdido', name: 'Thor', species: 'Cão', color: 'Preto', location: 'Centro', date: '2026-08-29', status: 'Em busca do tutor', reviewStatus: 'Aprovada', description: 'Porte médio, mancha branca no peito.' }
 ];
 
 function loadOccurrences() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? JSON.parse(saved) : initialOccurrences;
+    return saved ? JSON.parse(saved).map((item) => ({ reviewStatus: 'Aprovada', ...item })) : initialOccurrences;
   } catch (error) {
     return initialOccurrences;
   }
@@ -39,7 +39,7 @@ createApp({
       const matchesType = filterType.value === 'Todos' || item.type === filterType.value;
       const matchesSpecies = filterSpecies.value === 'Todas' || item.species === filterSpecies.value;
       const matchesStatus = filterStatus.value === 'Todas' || item.status === filterStatus.value;
-      return matchesText && matchesType && matchesSpecies && matchesStatus;
+      return item.reviewStatus !== 'Ocultada' && matchesText && matchesType && matchesSpecies && matchesStatus;
     }));
 
     watch(occurrences, (value) => {
@@ -51,7 +51,7 @@ createApp({
         notice.value = 'Preencha espécie, cor, local e data para cadastrar a ocorrência.';
         return;
       }
-      occurrences.value.unshift({ id: Date.now(), ...form.value, name: form.value.name || 'Sem nome' });
+      occurrences.value.unshift({ id: Date.now(), ...form.value, name: form.value.name || 'Sem nome', reviewStatus: 'Pendente' });
       notice.value = 'Ocorrência cadastrada com sucesso.';
       showForm.value = false;
       form.value = { type: 'Perdido', name: '', species: 'Cão', color: '', location: '', date: '', status: 'Em busca do tutor', description: '', photo: '' };
@@ -96,7 +96,26 @@ createApp({
       notice.value = 'Mensagem registrada para contato mediado.';
     }
 
-    return { occurrences, search, filterType, filterSpecies, filterStatus, profile, showForm, selectedOccurrence, contactOccurrence, contactMessage, notice, form, filteredOccurrences, submitOccurrence, updateStatus, openDetails, handlePhoto, openContact, submitContact };
+    function mapPosition(index) {
+      const positions = [[18, 30], [47, 24], [72, 45], [35, 64], [63, 70], [82, 22]];
+      const position = positions[index % positions.length];
+      return { left: `${position[0]}%`, top: `${position[1]}%` };
+    }
+
+    function adminAction(item, reviewStatus) {
+      item.reviewStatus = reviewStatus;
+      notice.value = `${item.name} marcada como ${reviewStatus.toLowerCase()}.`;
+    }
+
+    const dashboardStats = computed(() => ({
+      total: occurrences.value.length,
+      lost: occurrences.value.filter((item) => item.type === 'Perdido').length,
+      found: occurrences.value.filter((item) => item.type === 'Encontrado').length,
+      reunited: occurrences.value.filter((item) => item.status === 'Pet reencontrado').length,
+      pending: occurrences.value.filter((item) => item.reviewStatus === 'Pendente').length
+    }));
+
+    return { occurrences, search, filterType, filterSpecies, filterStatus, profile, showForm, selectedOccurrence, contactOccurrence, contactMessage, notice, form, filteredOccurrences, dashboardStats, submitOccurrence, updateStatus, openDetails, handlePhoto, openContact, submitContact, mapPosition, adminAction };
   },
   template: `
     <header class="site-header">
@@ -106,8 +125,11 @@ createApp({
           <span><strong>EncontraPet</strong><small>Municipal</small></span>
         </a>
         <nav aria-label="Navegação principal">
-          <a href="#ocorrencias">Ocorrências</a>
-          <a href="#como-funciona">Como funciona</a>
+            <a href="#ocorrencias">Ocorrências</a>
+            <a href="#mapa">Mapa</a>
+            <a href="#painel">Meu painel</a>
+            <a href="#administracao">Administração</a>
+            <a href="#como-funciona">Como funciona</a>
             <label class="profile-switch">Perfil (demonstração)<select v-model="profile"><option>Visitante</option><option>Tutor</option><option>Administrador</option></select></label><button class="button button-primary" @click="showForm = true">Cadastrar ocorrência</button>
         </nav>
       </div>
@@ -144,6 +166,12 @@ createApp({
         </div>
         <p v-else class="empty-state">Nenhuma ocorrência encontrada com esses filtros.</p>
       </section>
+
+      <section id="mapa" class="section map-section"><div class="container"><div class="section-heading"><div><p class="eyebrow">Visão territorial</p><h2>Mapa de ocorrências</h2></div><span class="result-count">Localização aproximada</span></div><p class="section-intro">Consulte a concentração de registros por região sem expor endereços exatos.</p><div class="map-board" aria-label="Mapa demonstrativo de Bauru com ocorrências"><span class="map-road road-one"></span><span class="map-road road-two"></span><span class="map-road road-three"></span><span class="map-label label-north">Norte</span><span class="map-label label-center">Centro</span><span class="map-label label-south">Sul</span><button v-for="(item, index) in filteredOccurrences" :key="'map-' + item.id" class="map-marker" :style="mapPosition(index)" @click="openDetails(item)" :aria-label="'Abrir ocorrência de ' + item.name">{{ item.species === 'Gato' ? '🐱' : '🐶' }}</button></div></div></section>
+
+      <section id="painel" class="section dashboard-section"><div class="container"><div class="section-heading"><div><p class="eyebrow">Área do usuário</p><h2>Meu painel</h2></div><span class="result-count">Perfil: {{ profile }}</span></div><p class="section-intro">Acompanhe os registros associados ao seu perfil e atualize a situação dos animais.</p><div class="stats-grid"><div class="stat-card"><strong>{{ dashboardStats.total }}</strong><span>Registros no protótipo</span></div><div class="stat-card"><strong>{{ dashboardStats.lost }}</strong><span>Pets perdidos</span></div><div class="stat-card"><strong>{{ dashboardStats.found }}</strong><span>Pets encontrados</span></div><div class="stat-card"><strong>{{ dashboardStats.reunited }}</strong><span>Reencontros</span></div></div><div class="panel-note"><strong>Próximo passo:</strong> com autenticação real, esta área exibirá somente as ocorrências cadastradas pelo usuário conectado.</div></div></section>
+
+      <section id="administracao" class="section admin-section"><div class="container"><div class="section-heading"><div><p class="eyebrow">Gestão municipal</p><h2>Painel administrativo</h2></div><span class="result-count">Demonstração local</span></div><p class="section-intro">Área para revisão de conteúdo, acompanhamento dos indicadores e moderação das ocorrências.</p><div class="stats-grid"><div class="stat-card"><strong>{{ dashboardStats.total }}</strong><span>Total de ocorrências</span></div><div class="stat-card"><strong>{{ dashboardStats.pending }}</strong><span>Aguardando revisão</span></div><div class="stat-card"><strong>{{ dashboardStats.reunited }}</strong><span>Reencontrados</span></div></div><div class="admin-list"><article v-for="item in occurrences" :key="'admin-' + item.id" class="admin-row"><div><strong>{{ item.name }}</strong><span>{{ item.type }} · {{ item.location }} · {{ item.reviewStatus }}</span></div><div class="admin-actions"><button class="small-button" @click="adminAction(item, 'Aprovada')">Aprovar</button><button class="small-button danger-button" @click="adminAction(item, 'Ocultada')">Ocultar</button></div></article></div></div></section>
 
       <section id="como-funciona" class="how-section"><div class="container"><div class="section-heading"><div><p class="eyebrow">Participação cidadã</p><h2>Como funciona</h2></div></div><div class="steps"><div><span>1</span><h3>Registre</h3><p>Informe as características e o local onde o pet foi perdido ou encontrado.</p></div><div><span>2</span><h3>Busque</h3><p>Use filtros para consultar ocorrências próximas e comparar informações.</p></div><div><span>3</span><h3>Reencontre</h3><p>Envie informações com privacidade e ajude a atualizar a situação do animal.</p></div></div></div></section>
     </main>

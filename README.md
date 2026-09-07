@@ -26,9 +26,12 @@ Abra `index.html` em um navegador com conexão à internet. A conexão é necess
 - Pré-visualização de fotos e armazenamento local da imagem.
 - Formulário demonstrativo de contato mediado.
 - Seletor de perfil para demonstrar visitante, tutor e administrador.
+- Mapa demonstrativo com localização aproximada das ocorrências.
+- Painel do tutor com indicadores de registros e reencontros.
+- Painel administrativo com revisão e ocultação de ocorrências.
 - Atualização da lista sem recarregar a página.
 - Layout responsivo e navegação por teclado.
 
 ## Limitações da versão inicial
 
-Os dados e mensagens ficam salvos apenas no navegador, sem sincronização entre dispositivos. O seletor de perfil é demonstrativo e ainda não representa autenticação real. Banco de dados online, autenticação segura, contato mediado por servidor e publicação serão desenvolvidos em etapas posteriores.
+Os dados e mensagens ficam salvos apenas no navegador, sem sincronização entre dispositivos. O mapa é uma representação visual, não um serviço cartográfico real. O seletor de perfil e o painel administrativo são demonstrativos e ainda não representam autenticação ou autorização reais. Banco de dados online, autenticação segura, contato mediado por servidor e publicação serão desenvolvidos em etapas posteriores.
