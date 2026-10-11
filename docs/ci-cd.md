@@ -25,4 +25,8 @@ pnpm run test:ci-browser
 - Decidir a estratégia de migração (verificação do estado, revisão de SQL, backup e execução manual aprovada) antes de automatizar qualquer alteração de banco.
 - Promover manualmente um pacote aprovado, registrando commit, checksum, responsável e procedimento de reversão. Não há credenciais de produção nem deploy configurados nesta etapa.
 
-Uma falha de teste bloqueia a geração do pacote. O `SHA256SUMS` permite comparar o arquivo promovido com o artefato da execução. A execução em GitHub Actions só poderá ser confirmada após o workflow ser enviado ao repositório remoto.
+Uma falha de teste bloqueia a geração do pacote. O `SHA256SUMS` permite comparar o arquivo promovido com o artefato da execução. O workflow já foi enviado e sua primeira execução remota está registrada abaixo.
+
+## Execução verificada
+
+Em 11/10/2026, o commit `28a3e91` passou no GitHub Actions: sintaxe, oito testes de lógica, cinco verificações de navegador com dados simulados e criação do pacote estático com checksum. A execução ficou registrada em <https://github.com/Pedrosin/encontrapet-municipal/actions/runs/38168426833>. No mesmo dia, nove verificações online de leitura passaram localmente; o fluxo autenticado real está documentado em `qa/online/fluxo-autenticado-2026-10-11.md`. Nada disso equivale a publicar o aplicativo ou a testar todas as variantes de autenticação.
