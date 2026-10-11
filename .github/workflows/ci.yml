@@ -1,0 +1,57 @@
+name: Validar e empacotar
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/setup@v3
+        with:
+          version: 11.25.0
+          runtime: node@22
+          cache: true
+      - name: Instalar Chromium para os testes
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Verificar sintaxe
+        run: pnpm run check:syntax
+      - name: Testar regras de negócio
+        run: pnpm test
+      - name: Testar interface com dados fictícios simulados
+        run: pnpm run test:ci-browser
+      - name: Guardar captura em caso de falha
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidencia-ci
+          path: qa/ci/
+          if-no-files-found: ignore
+          retention-days: 7
+      - name: Empacotar versão estática validada
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p dist
+          tar -czf dist/encontrapet-${GITHUB_SHA}.tar.gz index.html app.js styles.css src/data.js src/backend.js src/store.js src/components.js src/views.js assets/
+          cd dist
+          sha256sum encontrapet-${GITHUB_SHA}.tar.gz > SHA256SUMS
+      - name: Guardar pacote para promoção manual
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: encontrapet-estatico-${{ github.sha }}
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30

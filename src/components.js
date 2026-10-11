@@ -55,12 +55,10 @@
         await router.push({ path: '/', query: { section } });
       }
 
-      function changeProfile(event) {
-        store.setProfile(event.target.value);
-        if (route.meta.role && route.meta.role !== store.state.profile) {
-          router.push('/');
-          store.notify('Perfil de demonstração alterado.');
-        }
+      async function signOut() {
+        if (accountMenu.value) accountMenu.value.open = false;
+        await store.signOut();
+        if (route.meta.auth || route.meta.admin) await router.push('/');
       }
 
       watch(() => route.fullPath, () => {
@@ -71,8 +69,7 @@
         store,
         accountMenu,
         goToSection,
-        changeProfile,
-        profiles: namespace.data.PROFILES
+        signOut
       };
     },
     template: `
@@ -92,14 +89,11 @@
             <details ref="accountMenu" class="account-menu">
               <summary><i class="ph ph-user" aria-hidden="true"></i>Área<i class="ph ph-caret-down" aria-hidden="true"></i></summary>
               <div class="account-popover">
-                <p><strong>Perfil de demonstração</strong><small>Não representa uma autenticação real.</small></p>
-                <label>Visualizar como
-                  <select :value="store.state.profile" @change="changeProfile">
-                    <option v-for="profile in profiles" :key="profile">{{ profile }}</option>
-                  </select>
-                </label>
+                <p><strong>{{ store.state.user?.email || 'Visitante' }}</strong><small>{{ store.isAdmin ? 'Administração' : (store.isTutor ? 'Conta de tutor' : 'Entre para participar') }}</small></p>
+                <router-link v-if="!store.state.user" to="/entrar">Entrar ou criar conta</router-link>
                 <router-link v-if="store.isTutor" to="/painel">Meu painel</router-link>
                 <router-link v-if="store.isAdmin" to="/administracao">Administração</router-link>
+                <button v-if="store.state.user" class="text-button" type="button" @click="signOut">Sair</button>
               </div>
             </details>
           </div>
@@ -122,7 +116,7 @@
         if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
       }
 
-      onMounted(() => nextTick(() => modal.value?.querySelector('textarea')?.focus()));
+      onMounted(() => nextTick(() => (modal.value?.querySelector('textarea') || modal.value?.querySelector('a') || modal.value?.querySelector('button'))?.focus()));
       return { store, modal, handleKeydown };
     },
     template: `
@@ -131,9 +125,10 @@
           <button class="modal-close" type="button" aria-label="Fechar contato" @click="store.closeContact()">×</button>
           <p class="eyebrow">Contato mediado</p>
           <h2 id="contact-title">Falar sobre {{ store.state.contactOccurrence.name }}</h2>
-          <p id="contact-note" class="privacy-note">Esta mensagem é armazenada apenas nesta demonstração. Em produção, o contato deve ser mediado por um serviço seguro.</p>
-          <form @submit.prevent="store.submitContact()">
-            <label>Mensagem<textarea v-model="store.state.contactMessage" rows="5" placeholder="Conte o que você sabe sobre este pet" required></textarea></label>
+          <p id="contact-note" class="privacy-note">A mensagem será armazenada no serviço do projeto e poderá ser lida pelo responsável e pela moderação. Não inclua telefone ou endereço.</p>
+          <p v-if="!store.state.user"><router-link to="/entrar" @click="store.closeContact()">Entre na sua conta</router-link> para enviar uma mensagem.</p>
+          <form v-else @submit.prevent="store.submitContact()">
+            <label>Mensagem<textarea v-model="store.state.contactMessage" rows="5" maxlength="1000" placeholder="Conte o que você sabe sobre este pet" required></textarea></label>
             <button class="button button-primary" type="submit">Registrar mensagem</button>
           </form>
         </section>

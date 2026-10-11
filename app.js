@@ -3,15 +3,17 @@ const { createRouter, createWebHashHistory } = VueRouter;
 const { components, views, createStore } = window.EncontraPet;
 
 const store = createStore();
+store.init();
 const routes = [
   { path: '/', name: 'inicio', component: views.HomeView, meta: { title: 'Início' } },
   { path: '/inicio', redirect: '/' },
   { path: '/ocorrencias', name: 'ocorrencias', component: views.OccurrencesView, meta: { title: 'Ocorrências' } },
   { path: '/ocorrencias/:id', name: 'detalhes', component: views.DetailsView, meta: { title: 'Detalhes da ocorrência' } },
   { path: '/mapa', name: 'mapa', component: views.MapView, meta: { title: 'Mapa de ocorrências' } },
-  { path: '/painel', name: 'painel', component: views.UserPanelView, meta: { title: 'Meu painel', role: 'Tutor' } },
-  { path: '/administracao', name: 'administracao', component: views.AdminView, meta: { title: 'Administração', role: 'Administrador' } },
-  { path: '/cadastrar', name: 'cadastrar', component: views.RegisterView, meta: { title: 'Cadastrar ocorrência' } },
+  { path: '/painel', name: 'painel', component: views.UserPanelView, meta: { title: 'Meu painel', auth: true } },
+  { path: '/administracao', name: 'administracao', component: views.AdminView, meta: { title: 'Administração', admin: true } },
+  { path: '/cadastrar', name: 'cadastrar', component: views.RegisterView, meta: { title: 'Cadastrar ocorrência', auth: true } },
+  { path: '/entrar', name: 'entrar', component: views.AuthView, meta: { title: 'Entrar' } },
   { path: '/como-funciona', redirect: { path: '/', query: { section: 'como-funciona' } } },
   { path: '/:pathMatch(.*)*', name: 'nao-encontrada', component: views.NotFoundView, meta: { title: 'Página não encontrada' } }
 ];
@@ -25,10 +27,14 @@ const router = createRouter({
   }
 });
 
-router.beforeEach((to) => {
-  if (!to.meta.role || to.meta.role === store.state.profile) return true;
-  store.notify(`A área solicitada é exclusiva do perfil ${to.meta.role}.`);
-  return { path: '/', replace: true };
+router.beforeEach(async (to) => {
+  await store.ready;
+  if (to.meta.auth && !store.state.user) return { path: '/entrar', query: { next: to.fullPath }, replace: true };
+  if (to.meta.admin && !store.isAdmin) {
+    store.notify('Área exclusiva da administração.');
+    return { path: '/', replace: true };
+  }
+  return true;
 });
 
 router.afterEach(async (to) => {
@@ -43,14 +49,19 @@ const App = {
     ContactModal: components.ContactModal,
     ToastMessage: components.ToastMessage
   },
-  setup() { return { store }; },
+  setup() {
+    function skipToContent() {
+      document.querySelector('#conteudo')?.focus();
+    }
+    return { store, skipToContent };
+  },
   template: `
-    <a class="skip-link" href="#conteudo">Pular para o conteúdo</a>
+    <a class="skip-link" href="#conteudo" @click.prevent="skipToContent">Pular para o conteúdo</a>
     <site-header />
     <main id="conteudo" tabindex="-1"><router-view /></main>
     <contact-modal v-if="store.state.contactOccurrence" />
     <toast-message v-if="store.state.notice" />
-    <footer><div class="container"><img src="./assets/encontrapet-icon.png" alt="" /><p><strong>EncontraPet é um serviço público de Bauru.</strong><span>Juntos, construímos uma cidade mais cuidadosa com seus animais.</span></p><router-link to="/?section=como-funciona">Saiba como funciona</router-link></div></footer>`
+    <footer><div class="container"><img src="./assets/encontrapet-icon.png" alt="" /><p><strong>EncontraPet é um protótipo acadêmico para Bauru.</strong><span>Sem vínculo oficial com a prefeitura. Use apenas dados fictícios nesta versão de demonstração.</span></p><router-link to="/?section=como-funciona">Saiba como funciona</router-link></div></footer>`
 };
 
 createApp(App).provide('store', store).use(router).mount('#app');

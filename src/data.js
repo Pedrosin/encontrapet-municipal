@@ -44,6 +44,7 @@
   }
 
   function normalizeOccurrence(item, index) {
+    item = item && typeof item === 'object' ? item : {};
     const safeStatus = STATUSES.includes(item.status) ? item.status : STATUSES[0];
     const safeReview = REVIEW_STATUSES.includes(item.reviewStatus) ? item.reviewStatus : 'Aprovada';
     return {
@@ -63,8 +64,13 @@
   }
 
   function loadOccurrences() {
-    const current = localStorage.getItem(KEYS.occurrences);
-    let sourceKey = current ? KEYS.occurrences : KEYS.previousOccurrences.find((key) => localStorage.getItem(key));
+    let sourceKey;
+    try {
+      const current = localStorage.getItem(KEYS.occurrences);
+      sourceKey = current ? KEYS.occurrences : KEYS.previousOccurrences.find((key) => localStorage.getItem(key));
+    } catch {
+      return clone(initialOccurrences);
+    }
     const items = sourceKey ? readJson(sourceKey, initialOccurrences) : clone(initialOccurrences);
     const normalized = items.map(normalizeOccurrence);
     if (sourceKey !== KEYS.occurrences) writeJson(KEYS.occurrences, normalized);
@@ -72,8 +78,12 @@
   }
 
   function loadProfile() {
-    const value = localStorage.getItem(KEYS.profile);
-    return PROFILES.includes(value) ? value : 'Visitante';
+    try {
+      const value = localStorage.getItem(KEYS.profile);
+      return PROFILES.includes(value) ? value : 'Visitante';
+    } catch {
+      return 'Visitante';
+    }
   }
 
   function formatDate(value) {
